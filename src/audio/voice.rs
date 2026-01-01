@@ -74,15 +74,14 @@ impl SynthVoice {
 
                         let osc = Oscillator::new(AudioParam::Dynamic(Box::new(freq_mod)), wave);
 
+                        let mut osc_box = Box::new(osc);
+                        osc_box.set_sample_rate(self.sample_rate);
+
                         self.modules.push(RuntimeModule {
-                            processor: Box::new(osc),
+                            processor: osc_box,
                             params: vec![p_pe_amount, p_pe_decay],
                             config_type: config.clone(),
                         });
-                        // We need to get the reference to the pushed processor to set sample rate,
-                        // but we moved it.
-                        // Better to set it before pushing or access last element.
-                        self.modules.last_mut().unwrap().processor.set_sample_rate(self.sample_rate);
                         continue;
                     } else {
                         Oscillator::new(AudioParam::Linked(self.pitch.clone()), wave)

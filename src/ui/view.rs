@@ -20,7 +20,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             ]
             .as_ref(),
         )
-        .split(f.size());
+        .split(f.area());
 
     let state_arc = app.state.clone();
     let state = state_arc.lock().unwrap();
@@ -63,7 +63,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_file_dialog(f: &mut Frame, app: &mut App) {
-    let area = centered_rect(60, 50, f.size());
+    let area = centered_rect(60, 50, f.area());
     f.render_widget(Clear, area); // Clear the background
 
     let items: Vec<ListItem> = app.file_list.iter()
@@ -245,7 +245,7 @@ fn draw_instrument_view(f: &mut Frame, area: Rect, state: &SharedState, app: &mu
     let param_block = Block::default().borders(Borders::ALL).title("Modules & Params");
     let table = Table::new(rows, [Constraint::Length(20), Constraint::Length(15)])
         .block(param_block)
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
     f.render_stateful_widget(table, chunks[1], &mut app.param_table_state);
 }

@@ -117,9 +117,11 @@ pub fn run_app(mut app: App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
+fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> where <B as Backend>::Error: Send + Sync + 'static {
     loop {
-        terminal.draw(|f| ui(f, app))?;
+        if let Err(e) = terminal.draw(|f| ui(f, app)) {
+            return Err(io::Error::new(io::ErrorKind::Other, e));
+        }
 
         if app.status_timer > 0 {
             app.status_timer -= 1;

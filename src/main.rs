@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = device.default_output_config()?;
 
     // Create shared state
-    let sample_rate = config.sample_rate().0 as f32;
+    let sample_rate = config.sample_rate() as f32;
     let state = Arc::new(Mutex::new(SharedState::new(120.0, sample_rate)));
 
     // Start audio stream
@@ -47,7 +47,7 @@ fn run_audio<T>(
 where
     T: cpal::Sample + cpal::FromSample<f32> + SizedSample,
 {
-    let sample_rate = config.sample_rate.0 as f32;
+    let sample_rate = config.sample_rate as f32;
     let channels = config.channels as usize;
 
     let mut engine = TrackerEngine::new(sample_rate, state);
