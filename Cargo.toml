@@ -1,11 +1,11 @@
 [package]
 name = "infinitrak"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 cpal = "0.17"
-infinitedsp-core = "0.3.0"
+infinitedsp-core = "0.5.0"
 ratatui = "0.30"
 crossterm = "0.29"
 serde = { version = "1.0", features = ["derive"] }
