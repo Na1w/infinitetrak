@@ -78,7 +78,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_help_dialog(f: &mut Frame, app: &mut App) {
-    let area = centered_rect(80, 80, f.area()); // Increased size for better readability
+    let area = centered_rect(80, 80, f.area());
     f.render_widget(Clear, area);
 
     let help_text = vec![
@@ -125,7 +125,7 @@ fn draw_help_dialog(f: &mut Frame, app: &mut App) {
 
 fn draw_file_dialog(f: &mut Frame, app: &mut App) {
     let area = centered_rect(60, 50, f.area());
-    f.render_widget(Clear, area); // Clear the background
+    f.render_widget(Clear, area);
 
     let items: Vec<ListItem> = app.file_list.iter()
         .map(|s| ListItem::new(s.as_str()))
@@ -138,7 +138,6 @@ fn draw_file_dialog(f: &mut Frame, app: &mut App) {
     f.render_stateful_widget(list, area, &mut app.file_list_state);
 }
 
-/// Helper to create a centered rectangle.
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -165,20 +164,30 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
+fn get_channel_color(channel: usize) -> Color {
+    match channel {
+        0..=3 => Color::Yellow,   // Rhythm / Bass
+        4..=7 => Color::Cyan,     // Melodic / Synths
+        8..=11 => Color::Green,   // Atmos / FX
+        _ => Color::Magenta,      // Misc
+    }
+}
 
 fn draw_pattern_view(f: &mut Frame, area: Rect, state: &SharedState, app: &App) {
-    let selected_style = Style::default().add_modifier(Modifier::REVERSED);
-    let normal_style = Style::default();
     let play_pos_style = Style::default().bg(Color::DarkGray);
     let cursor_play_style = Style::default().bg(Color::DarkGray).add_modifier(Modifier::REVERSED);
 
     let mut header_cells = Vec::with_capacity(NUM_CHANNELS + 1);
-    header_cells.push(Cell::from("Row").style(Style::default().fg(Color::Yellow)));
+    header_cells.push(Cell::from("Row").style(Style::default().fg(Color::White)));
+
     for i in 0..NUM_CHANNELS {
-        header_cells.push(Cell::from(format!("{:X}", i)).style(Style::default().fg(Color::Yellow)));
+        let col_color = get_channel_color(i);
+        // Header with colored background and black text for contrast
+        header_cells.push(Cell::from(format!("{:X}", i))
+            .style(Style::default().bg(col_color).fg(Color::Black).add_modifier(Modifier::BOLD)));
     }
 
-    let header = Row::new(header_cells).style(normal_style).height(1).bottom_margin(1);
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let inner_height = (area.height as usize).saturating_sub(4);
 
@@ -200,9 +209,11 @@ fn draw_pattern_view(f: &mut Frame, area: Rect, state: &SharedState, app: &App) 
             .take(inner_height)
             .map(|(i, row_data)| {
             let mut cells = Vec::with_capacity(NUM_CHANNELS + 1);
-            cells.push(Cell::from(format!("{:02X}", i)));
+            cells.push(Cell::from(format!("{:02X}", i)).style(Style::default().fg(Color::DarkGray)));
 
             for (ch_idx, note) in row_data.iter().enumerate() {
+                let col_color = get_channel_color(ch_idx);
+
                 let note_str = if note.key == 0 {
                     "---".to_string()
                 } else {
@@ -214,21 +225,24 @@ fn draw_pattern_view(f: &mut Frame, area: Rect, state: &SharedState, app: &App) 
 
                 let cell = Cell::from(note_str);
 
+                // Determine style
                 if i == app.cursor_row && ch_idx == app.cursor_channel {
                     if i == state.current_row {
                          cells.push(cell.style(cursor_play_style));
                     } else {
-                         cells.push(cell.style(selected_style));
+                         // Cursor: Reverse video, keep color tint if possible or just standard reverse
+                         cells.push(cell.style(Style::default().bg(col_color).fg(Color::Black)));
                     }
                 } else {
-                    cells.push(cell);
+                    // Normal cell: Use column color for text
+                    cells.push(cell.style(Style::default().fg(col_color)));
                 }
             }
 
             let row_style = if i == state.current_row {
                 play_pos_style
             } else {
-                normal_style
+                Style::default()
             };
 
             Row::new(cells).style(row_style)

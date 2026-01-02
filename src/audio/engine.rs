@@ -49,34 +49,41 @@ impl TrackerEngine {
             state.current_pattern = 0;
         }
 
-        let row = state.patterns[state.current_pattern].rows[row_idx];
+        // Safety check for row index
+        let current_pattern = &state.patterns[state.current_pattern];
+        if row_idx >= current_pattern.rows.len() {
+            // If we are out of bounds, just advance to next row/pattern logic
+            // This prevents panic if loaded pattern is shorter than ROWS_PER_PATTERN
+        } else {
+            let row = current_pattern.rows[row_idx];
 
-        for (i, note) in row.iter().enumerate() {
-            let inst_idx = i % NUM_INSTRUMENTS;
-            let instrument = Some(&state.instruments[inst_idx]);
+            for (i, note) in row.iter().enumerate() {
+                let inst_idx = i % NUM_INSTRUMENTS;
+                let instrument = Some(&state.instruments[inst_idx]);
 
-            if note.key > 0 {
-                let freq = Self::midi_to_freq(note.key);
+                if note.key > 0 {
+                    let freq = Self::midi_to_freq(note.key);
 
-                // Logic:
-                // Channels 0-2 are Drums -> Always Retrigger
-                // Channels 3+ are Synths -> Legato if same key
-                let is_drum_channel = i <= 2;
+                    // Logic:
+                    // Channels 0-2 are Drums -> Always Retrigger
+                    // Channels 3+ are Synths -> Legato if same key
+                    let is_drum_channel = i <= 2;
 
-                if !is_drum_channel && note.key == self.channels[i].last_key {
-                    self.channels[i].legato_note(freq, instrument);
+                    if !is_drum_channel && note.key == self.channels[i].last_key {
+                        self.channels[i].legato_note(freq, instrument);
+                    } else {
+                        self.channels[i].trigger_note(freq, instrument);
+                    }
+
+                    self.channels[i].last_key = note.key;
+
                 } else {
-                    self.channels[i].trigger_note(freq, instrument);
+                    // Empty row behavior:
+                    // Empty row triggers Note Off (Release) to allow for staccato.
+                    // Legato is achieved by placing consecutive notes without gaps.
+                    self.channels[i].release();
+                    self.channels[i].last_key = 0;
                 }
-
-                self.channels[i].last_key = note.key;
-
-            } else {
-                // Empty row behavior:
-                // Empty row triggers Note Off (Release) to allow for staccato.
-                // Legato is achieved by placing consecutive notes without gaps.
-                self.channels[i].release();
-                self.channels[i].last_key = 0;
             }
         }
 
