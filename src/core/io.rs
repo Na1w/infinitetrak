@@ -7,14 +7,18 @@ use super::instrument::Instrument;
 #[derive(Serialize, Deserialize)]
 pub struct Project {
     pub bpm: f32,
-    pub pattern: Pattern,
+    #[serde(default)]
+    pub pattern: Option<Pattern>, // Legacy support
+    #[serde(default)]
+    pub patterns: Vec<Pattern>,
     pub instruments: Vec<Instrument>,
 }
 
-pub fn save_project(path: &str, bpm: f32, pattern: &Pattern, instruments: &[Instrument]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_project(path: &str, bpm: f32, patterns: &[Pattern], instruments: &[Instrument]) -> Result<(), Box<dyn std::error::Error>> {
     let project = Project {
         bpm,
-        pattern: pattern.clone(),
+        pattern: None,
+        patterns: patterns.to_vec(),
         instruments: instruments.to_vec(),
     };
 

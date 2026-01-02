@@ -2,12 +2,20 @@ use super::instrument::{Instrument, ModuleConfig, WaveformType};
 use super::pattern::Pattern;
 use super::NUM_INSTRUMENTS;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum PlayMode {
+    Pattern,
+    Song,
+}
+
 #[derive(Clone)]
 pub struct SharedState {
-    pub pattern: Pattern,
+    pub patterns: Vec<Pattern>,
+    pub current_pattern: usize,
     pub instruments: [Instrument; NUM_INSTRUMENTS],
     pub current_row: usize,
     pub is_playing: bool,
+    pub play_mode: PlayMode,
     pub bpm: f32,
     pub samples_per_tick: usize,
     pub current_tick_samples: usize,
@@ -146,10 +154,12 @@ impl SharedState {
         let instruments_array: [Instrument; NUM_INSTRUMENTS] = instruments.try_into().expect("Wrong size");
 
         Self {
-            pattern: Pattern::default(),
+            patterns: vec![Pattern::default()],
+            current_pattern: 0,
             instruments: instruments_array,
             current_row: 0,
             is_playing: false,
+            play_mode: PlayMode::Pattern,
             bpm,
             samples_per_tick: samples_per_row as usize,
             current_tick_samples: samples_per_row as usize,
@@ -159,7 +169,16 @@ impl SharedState {
 
     pub fn load_project(&mut self, project: super::io::Project) {
         self.bpm = project.bpm;
-        self.pattern = project.pattern;
+
+        if !project.patterns.is_empty() {
+            self.patterns = project.patterns;
+        } else if let Some(p) = project.pattern {
+            self.patterns = vec![p];
+        } else {
+            self.patterns = vec![Pattern::default()];
+        }
+
+        self.current_pattern = 0;
 
         let mut instruments_vec = Vec::with_capacity(NUM_INSTRUMENTS);
         for _ in 0..NUM_INSTRUMENTS {

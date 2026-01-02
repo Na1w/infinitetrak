@@ -3,6 +3,8 @@ use std::fs;
 use crossterm::event::{self, KeyCode};
 use crate::core::{ROWS_PER_PATTERN, NUM_CHANNELS, NUM_INSTRUMENTS, ModuleConfig, WaveformType};
 use crate::core::io::{save_project, load_project};
+use crate::core::pattern::Pattern;
+use crate::core::state::PlayMode;
 use crate::audio::render_to_wav;
 use super::app::{App, InstrumentFocus};
 
@@ -91,12 +93,12 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                 }
             };
 
-            let (bpm, pattern, instruments) = {
+            let (bpm, patterns, instruments) = {
                 let state = app.state.lock().unwrap();
-                (state.bpm, state.pattern.clone(), state.instruments.clone())
+                (state.bpm, state.patterns.clone(), state.instruments.clone())
             };
 
-            if let Err(e) = save_project(&filename, bpm, &pattern, &instruments) {
+            if let Err(e) = save_project(&filename, bpm, &patterns, &instruments) {
                 app.set_status(format!("Error saving new: {}", e));
             } else {
                 app.set_status(format!("Saved new to {}", filename));
@@ -106,11 +108,11 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         // Save (F11) - Overwrite current or Save New if none
         KeyCode::F(11) => {
             if let Some(filename) = &app.current_filename {
-                let (bpm, pattern, instruments) = {
+                let (bpm, patterns, instruments) = {
                     let state = app.state.lock().unwrap();
-                    (state.bpm, state.pattern.clone(), state.instruments.clone())
+                    (state.bpm, state.patterns.clone(), state.instruments.clone())
                 };
-                if let Err(e) = save_project(filename, bpm, &pattern, &instruments) {
+                if let Err(e) = save_project(filename, bpm, &patterns, &instruments) {
                     app.set_status(format!("Error saving: {}", e));
                 } else {
                     app.set_status(format!("Saved to {}", filename));
@@ -129,12 +131,12 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                     }
                 };
 
-                let (bpm, pattern, instruments) = {
+                let (bpm, patterns, instruments) = {
                     let state = app.state.lock().unwrap();
-                    (state.bpm, state.pattern.clone(), state.instruments.clone())
+                    (state.bpm, state.patterns.clone(), state.instruments.clone())
                 };
 
-                if let Err(e) = save_project(&filename, bpm, &pattern, &instruments) {
+                if let Err(e) = save_project(&filename, bpm, &patterns, &instruments) {
                     app.set_status(format!("Error saving new: {}", e));
                 } else {
                     app.set_status(format!("Saved new to {}", filename));
@@ -191,6 +193,29 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         KeyCode::F(4) => {
             if app.edit_step < 16 { app.edit_step += 1; }
         }
+        KeyCode::F(5) => {
+            let current_pattern = {
+                let mut state = app.state.lock().unwrap();
+                if state.current_pattern > 0 {
+                    state.current_pattern -= 1;
+                }
+                state.current_pattern
+            };
+            app.set_status(format!("Pattern: {}", current_pattern));
+        }
+        KeyCode::F(6) => {
+            let current_pattern = {
+                let mut state = app.state.lock().unwrap();
+                if state.current_pattern < 255 { // Arbitrary limit
+                    state.current_pattern += 1;
+                    if state.current_pattern >= state.patterns.len() {
+                        state.patterns.push(Pattern::default());
+                    }
+                }
+                state.current_pattern
+            };
+            app.set_status(format!("Pattern: {}", current_pattern));
+        }
         KeyCode::F(7) => {
             let mut state = app.state.lock().unwrap();
             if state.bpm > 10.0 {
@@ -207,9 +232,48 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                 state.samples_per_tick = ((sample_rate * 60.0) / (state.bpm * 4.0)) as usize;
             }
         }
+        KeyCode::Char('p') => {
+            let play_mode = {
+                let mut state = app.state.lock().unwrap();
+                state.play_mode = match state.play_mode {
+                    PlayMode::Pattern => PlayMode::Song,
+                    PlayMode::Song => PlayMode::Pattern,
+                };
+                state.play_mode
+            };
+            app.set_status(format!("Mode: {:?}", play_mode));
+        }
+        KeyCode::Char('n') => {
+            let (new_idx, total) = {
+                let mut state = app.state.lock().unwrap();
+                let current_pattern_idx = state.current_pattern;
+                let current_pattern = state.patterns[current_pattern_idx].clone();
+                state.patterns.insert(current_pattern_idx + 1, current_pattern);
+                state.current_pattern += 1;
+                (state.current_pattern, state.patterns.len())
+            };
+            app.set_status(format!("Cloned Pattern {} (Total: {})", new_idx, total));
+        }
+        KeyCode::Char('x') => {
+            let (new_idx, total) = {
+                let mut state = app.state.lock().unwrap();
+                let current_pattern_idx = state.current_pattern;
+                if state.patterns.len() > 1 {
+                    state.patterns.remove(current_pattern_idx);
+                    if state.current_pattern >= state.patterns.len() {
+                        state.current_pattern = state.patterns.len() - 1;
+                    }
+                    (state.current_pattern, state.patterns.len())
+                } else {
+                    (state.current_pattern, state.patterns.len())
+                }
+            };
+            app.set_status(format!("Deleted Pattern. Current: {} (Total: {})", new_idx, total));
+        }
         KeyCode::Backspace | KeyCode::Delete | KeyCode::Char('.') => {
             let mut state = app.state.lock().unwrap();
-            state.pattern.rows[app.cursor_row][app.cursor_channel].key = 0;
+            let pattern_idx = state.current_pattern;
+            state.patterns[pattern_idx].rows[app.cursor_row][app.cursor_channel].key = 0;
             state.preview_request = Some((app.cursor_channel, 0));
 
             if app.edit_step > 0 {
@@ -229,7 +293,8 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                 let mut state = app.state.lock().unwrap();
                 let midi_note = base + (app.current_octave + 1) * 12;
                 if midi_note < 128 {
-                    state.pattern.rows[app.cursor_row][app.cursor_channel].key = midi_note;
+                    let pattern_idx = state.current_pattern;
+                    state.patterns[pattern_idx].rows[app.cursor_row][app.cursor_channel].key = midi_note;
                     state.preview_request = Some((app.cursor_channel, midi_note));
                 }
 

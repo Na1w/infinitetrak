@@ -1,6 +1,7 @@
 use infinitedsp_core::core::frame_processor::FrameProcessor;
 use std::sync::{Arc, Mutex};
 use crate::core::{SharedState, NUM_CHANNELS, ROWS_PER_PATTERN, NUM_INSTRUMENTS};
+use crate::core::state::PlayMode;
 use super::channel::Channel;
 
 pub struct TrackerEngine {
@@ -41,7 +42,14 @@ impl TrackerEngine {
         }
 
         let row_idx = state.current_row;
-        let row = state.pattern.rows[row_idx];
+        let pattern_idx = state.current_pattern;
+
+        // Ensure we have a valid pattern
+        if pattern_idx >= state.patterns.len() {
+            state.current_pattern = 0;
+        }
+
+        let row = state.patterns[state.current_pattern].rows[row_idx];
 
         for (i, note) in row.iter().enumerate() {
             let inst_idx = i % NUM_INSTRUMENTS;
@@ -72,7 +80,17 @@ impl TrackerEngine {
             }
         }
 
-        state.current_row = (state.current_row + 1) % ROWS_PER_PATTERN;
+        state.current_row += 1;
+        if state.current_row >= ROWS_PER_PATTERN {
+            state.current_row = 0;
+
+            if state.play_mode == PlayMode::Song {
+                state.current_pattern += 1;
+                if state.current_pattern >= state.patterns.len() {
+                    state.current_pattern = 0;
+                }
+            }
+        }
     }
 }
 

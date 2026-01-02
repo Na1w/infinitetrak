@@ -16,15 +16,18 @@ pub fn render_to_wav(path: &str, state: &SharedState) -> Result<(), Box<dyn std:
 
     // Reset state for rendering
     render_state.current_row = 0;
+    render_state.current_pattern = 0;
     render_state.current_tick_samples = samples_per_tick; // Start immediately
     render_state.is_playing = true;
     render_state.preview_request = None; // Ensure no stray preview notes
 
     // Create engine
-    let state_arc = Arc::new(Mutex::new(render_state));
+    let state_arc = Arc::new(Mutex::new(render_state.clone()));
     let mut engine = TrackerEngine::new(sample_rate, state_arc.clone());
 
-    let total_samples = ROWS_PER_PATTERN * samples_per_tick;
+    // Calculate total samples based on all patterns
+    let total_rows = render_state.patterns.len() * ROWS_PER_PATTERN;
+    let total_samples = total_rows * samples_per_tick;
 
     // Setup WAV writer
     let spec = hound::WavSpec {

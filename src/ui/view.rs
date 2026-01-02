@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 use crate::core::{SharedState, ROWS_PER_PATTERN, ModuleConfig, NUM_CHANNELS};
+use crate::core::state::PlayMode;
 use super::app::{App, View, InstrumentFocus};
 
 pub fn ui(f: &mut Frame, app: &mut App) {
@@ -34,12 +35,21 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 
     let inst_text = format!("{:02X}", app.current_instrument_idx);
     let step_text = format!("{}", app.edit_step);
+    let pattern_text = format!("{:02X}", state.current_pattern);
+    let mode_text = match state.play_mode {
+        PlayMode::Pattern => "PAT",
+        PlayMode::Song => "SONG",
+    };
 
     let header_spans = Line::from(vec![
         Span::raw(format!("InfiniTrak | BPM: {} | Octave: {} | Inst: ", state.bpm, app.current_octave)),
         Span::styled(inst_text, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
         Span::raw(" | Step: "),
         Span::styled(step_text, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw(" | Pat: "),
+        Span::styled(pattern_text, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" | Mode: "),
+        Span::styled(mode_text, Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
         Span::raw(format!(" | View: {} | Status: {} | Tab: Switch View", view_str, status)),
     ]);
 
@@ -60,6 +70,57 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     if app.show_file_dialog {
         draw_file_dialog(f, app);
     }
+
+    // Help Dialog (Overlay)
+    if app.show_help_dialog {
+        draw_help_dialog(f, app);
+    }
+}
+
+fn draw_help_dialog(f: &mut Frame, app: &mut App) {
+    let area = centered_rect(80, 80, f.area()); // Increased size for better readability
+    f.render_widget(Clear, area);
+
+    let help_text = vec![
+        "--- General ---",
+        "Tab: Switch View (Pattern/Instrument)",
+        "Space: Play/Stop",
+        "Shift+Space: Play from Cursor",
+        "F9: Load Project",
+        "F10: Save New Project",
+        "F11: Save Project",
+        "F12: Render to WAV",
+        "q: Quit",
+        "",
+        "--- Pattern View ---",
+        "Arrows: Move Cursor",
+        "z,s,x...: Play Notes (Piano Layout)",
+        "Delete/Backspace/.: Clear Note",
+        "F1/F2: Octave Down/Up",
+        "F3/F4: Edit Step Down/Up",
+        "F5/F6: Prev/Next Pattern",
+        "F7/F8: BPM Down/Up",
+        "p: Toggle Play Mode (Pattern/Song)",
+        "n: Clone Current Pattern",
+        "x: Delete Current Pattern",
+        "",
+        "--- Instrument View ---",
+        "Arrows: Navigate List/Params",
+        "Enter/Right: Edit Params",
+        "Esc/Left: Back to List",
+        "+/-: Change Parameter Value",
+        "0-9: Quick Select Instrument",
+    ];
+
+    let items: Vec<ListItem> = help_text.iter()
+        .map(|s| ListItem::new(*s))
+        .collect();
+
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title("Help (Esc to close, Up/Down to scroll)"))
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+    f.render_stateful_widget(list, area, &mut app.help_list_state);
 }
 
 fn draw_file_dialog(f: &mut Frame, app: &mut App) {
@@ -132,44 +193,49 @@ fn draw_pattern_view(f: &mut Frame, area: Rect, state: &SharedState, app: &App) 
         start_row
     };
 
-    let rows = state.pattern.rows.iter().enumerate()
-        .skip(start_row)
-        .take(inner_height)
-        .map(|(i, row_data)| {
-        let mut cells = Vec::with_capacity(NUM_CHANNELS + 1);
-        cells.push(Cell::from(format!("{:02X}", i)));
+    let pattern_idx = state.current_pattern;
+    let rows = if pattern_idx < state.patterns.len() {
+        state.patterns[pattern_idx].rows.iter().enumerate()
+            .skip(start_row)
+            .take(inner_height)
+            .map(|(i, row_data)| {
+            let mut cells = Vec::with_capacity(NUM_CHANNELS + 1);
+            cells.push(Cell::from(format!("{:02X}", i)));
 
-        for (ch_idx, note) in row_data.iter().enumerate() {
-            let note_str = if note.key == 0 {
-                "---".to_string()
+            for (ch_idx, note) in row_data.iter().enumerate() {
+                let note_str = if note.key == 0 {
+                    "---".to_string()
+                } else {
+                    let notes = ["C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"];
+                    let octave = (note.key / 12) as i8 - 1;
+                    let note_idx = (note.key % 12) as usize;
+                    format!("{}{}", notes[note_idx], octave)
+                };
+
+                let cell = Cell::from(note_str);
+
+                if i == app.cursor_row && ch_idx == app.cursor_channel {
+                    if i == state.current_row {
+                         cells.push(cell.style(cursor_play_style));
+                    } else {
+                         cells.push(cell.style(selected_style));
+                    }
+                } else {
+                    cells.push(cell);
+                }
+            }
+
+            let row_style = if i == state.current_row {
+                play_pos_style
             } else {
-                let notes = ["C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"];
-                let octave = (note.key / 12) as i8 - 1;
-                let note_idx = (note.key % 12) as usize;
-                format!("{}{}", notes[note_idx], octave)
+                normal_style
             };
 
-            let cell = Cell::from(note_str);
-
-            if i == app.cursor_row && ch_idx == app.cursor_channel {
-                if i == state.current_row {
-                     cells.push(cell.style(cursor_play_style));
-                } else {
-                     cells.push(cell.style(selected_style));
-                }
-            } else {
-                cells.push(cell);
-            }
-        }
-
-        let row_style = if i == state.current_row {
-            play_pos_style
-        } else {
-            normal_style
-        };
-
-        Row::new(cells).style(row_style)
-    });
+            Row::new(cells).style(row_style)
+        }).collect::<Vec<Row>>()
+    } else {
+        Vec::new()
+    };
 
     let mut widths = Vec::with_capacity(NUM_CHANNELS + 1);
     widths.push(Constraint::Length(4));
@@ -179,7 +245,7 @@ fn draw_pattern_view(f: &mut Frame, area: Rect, state: &SharedState, app: &App) 
 
     let t = Table::new(rows, widths)
         .header(header)
-        .block(Block::default().borders(Borders::ALL).title("Pattern 0"));
+        .block(Block::default().borders(Borders::ALL).title(format!("Pattern {:02X}", pattern_idx)));
 
     f.render_widget(t, area);
 }

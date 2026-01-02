@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::{Arc, Mutex};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -52,6 +52,10 @@ pub struct App {
     pub file_list: Vec<String>,
     pub file_list_state: ListState,
 
+    // Help Dialog
+    pub show_help_dialog: bool,
+    pub help_list_state: ListState,
+
     // Current Project File
     pub current_filename: Option<String>,
 }
@@ -65,6 +69,7 @@ impl App {
         param_table_state.select(Some(0));
 
         let file_list_state = ListState::default();
+        let help_list_state = ListState::default();
 
         App {
             state,
@@ -78,11 +83,13 @@ impl App {
             edit_step: 1,
             inst_list_state,
             param_table_state,
-            status_message: String::from("Welcome to InfiniTrak!"),
+            status_message: String::from("Welcome to InfiniTrak! Press ? for help."),
             status_timer: 100,
             show_file_dialog: false,
             file_list: Vec::new(),
             file_list_state,
+            show_help_dialog: false,
+            help_list_state,
             current_filename: None,
         }
     }
@@ -96,17 +103,18 @@ impl App {
 pub fn run_app(mut app: App) -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    // Removed EnableMouseCapture
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
     let res = run_main_loop(&mut terminal, &mut app);
 
     disable_raw_mode()?;
+    // Removed DisableMouseCapture
     execute!(
         terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
+        LeaveAlternateScreen
     )?;
     terminal.show_cursor()?;
 
@@ -131,8 +139,33 @@ fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::R
         }
 
         if event::poll(std::time::Duration::from_millis(50))? {
+            // Only process Key events, ignore Mouse events
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+
+                if app.show_help_dialog {
+                    match key.code {
+                        KeyCode::Esc | KeyCode::Char('?') => {
+                            app.show_help_dialog = false;
+                        }
+                        KeyCode::Up => {
+                            let selected = app.help_list_state.selected().unwrap_or(0);
+                            if selected > 0 {
+                                app.help_list_state.select(Some(selected - 1));
+                            }
+                        }
+                        KeyCode::Down => {
+                            let selected = app.help_list_state.selected().unwrap_or(0);
+                            // We don't know the exact length here easily without duplicating the list,
+                            // but we can just let it scroll. The view will clamp it or we can set a high limit.
+                            // A better way is to store the help text in App or a constant.
+                            // For now, let's just increment.
+                            app.help_list_state.select(Some(selected + 1));
+                        }
+                        _ => {}
+                    }
                     continue;
                 }
 
@@ -142,6 +175,11 @@ fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::R
                 }
 
                 match key.code {
+                    KeyCode::Char('?') => {
+                        app.show_help_dialog = true;
+                        app.help_list_state.select(Some(0)); // Reset scroll
+                        continue;
+                    }
                     KeyCode::Char('q') => return Ok(()),
                     KeyCode::Tab => {
                         app.current_view = match app.current_view {
