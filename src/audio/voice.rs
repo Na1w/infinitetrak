@@ -1,17 +1,18 @@
 use infinitedsp_core::core::audio_param::AudioParam;
+use infinitedsp_core::core::channels::Mono;
 use infinitedsp_core::core::dsp_chain::DspChain;
 use infinitedsp_core::core::frame_processor::FrameProcessor;
 use infinitedsp_core::core::parameter::Parameter;
-use infinitedsp_core::effects::utility::gain::Gain;
-use infinitedsp_core::effects::utility::dc_source::DcSource;
 use infinitedsp_core::effects::filter::ladder_filter::LadderFilter;
+use infinitedsp_core::effects::utility::dc_source::DcSource;
+use infinitedsp_core::effects::utility::gain::Gain;
 use infinitedsp_core::synthesis::envelope::{Adsr, Trigger};
 use infinitedsp_core::synthesis::oscillator::{Oscillator, Waveform};
 
 use crate::core::{Instrument, ModuleConfig, WaveformType};
 
 struct RuntimeModule {
-    processor: Box<dyn FrameProcessor + Send>,
+    processor: Box<dyn FrameProcessor<Mono> + Send>,
     params: Vec<Parameter>,
     config_type: ModuleConfig,
 }
@@ -41,7 +42,13 @@ impl SynthVoice {
 
         for config in &instrument.modules {
             match config {
-                ModuleConfig::Oscillator { waveform, pitch_offset: _, detune: _, pitch_env_amount, pitch_env_decay } => {
+                ModuleConfig::Oscillator {
+                    waveform,
+                    pitch_offset: _,
+                    detune: _,
+                    pitch_env_amount,
+                    pitch_env_decay,
+                } => {
                     let wave = match waveform {
                         WaveformType::Sine => Waveform::Sine,
                         WaveformType::Square => Waveform::Square,
@@ -69,8 +76,8 @@ impl SynthVoice {
 
                         let env_chain = DspChain::new(pe_env, self.sample_rate).and(pe_gain);
 
-                        let freq_mod = DspChain::new(base_pitch, self.sample_rate)
-                            .and_mix(1.0, env_chain);
+                        let freq_mod =
+                            DspChain::new(base_pitch, self.sample_rate).and_mix(1.0, env_chain);
 
                         let osc = Oscillator::new(AudioParam::Dynamic(Box::new(freq_mod)), wave);
 
@@ -94,14 +101,14 @@ impl SynthVoice {
                         params: vec![],
                         config_type: config.clone(),
                     });
-                },
+                }
                 ModuleConfig::Filter { cutoff, resonance } => {
                     let p_cutoff = Parameter::new(*cutoff);
                     let p_res = Parameter::new(*resonance);
 
                     let mut filter = LadderFilter::new(
                         AudioParam::Linked(p_cutoff.clone()),
-                        AudioParam::Linked(p_res.clone())
+                        AudioParam::Linked(p_res.clone()),
                     );
                     filter.set_sample_rate(self.sample_rate);
 
@@ -110,8 +117,13 @@ impl SynthVoice {
                         params: vec![p_cutoff, p_res],
                         config_type: config.clone(),
                     });
-                },
-                ModuleConfig::Adsr { attack, decay, sustain, release } => {
+                }
+                ModuleConfig::Adsr {
+                    attack,
+                    decay,
+                    sustain,
+                    release,
+                } => {
                     let p_a = Parameter::new(*attack);
                     let p_d = Parameter::new(*decay);
                     let p_s = Parameter::new(*sustain);
@@ -127,18 +139,18 @@ impl SynthVoice {
                     self.triggers.push(env.create_trigger());
 
                     let mut vca = Gain::new(AudioParam::Dynamic(Box::new(env)));
-                    vca.set_sample_rate(self.sample_rate);
+                    FrameProcessor::<Mono>::set_sample_rate(&mut vca, self.sample_rate);
 
                     self.modules.push(RuntimeModule {
                         processor: Box::new(vca),
                         params: vec![p_a, p_d, p_s, p_r],
                         config_type: config.clone(),
                     });
-                },
+                }
                 ModuleConfig::Gain { level } => {
                     let p_level = Parameter::new(*level);
                     let mut gain = Gain::new(AudioParam::Linked(p_level.clone()));
-                    gain.set_sample_rate(self.sample_rate);
+                    FrameProcessor::<Mono>::set_sample_rate(&mut gain, self.sample_rate);
 
                     self.modules.push(RuntimeModule {
                         processor: Box::new(gain),
@@ -159,14 +171,22 @@ impl SynthVoice {
             } else {
                 self.modules.iter().zip(&inst.modules).any(|(rt, cfg)| {
                     match (&rt.config_type, cfg) {
-                        (ModuleConfig::Oscillator { waveform: w1, pitch_env_amount: a1, .. },
-                         ModuleConfig::Oscillator { waveform: w2, pitch_env_amount: a2, .. }) => {
-                            w1 != w2 || (*a1 > 0.0) != (*a2 > 0.0)
-                        },
+                        (
+                            ModuleConfig::Oscillator {
+                                waveform: w1,
+                                pitch_env_amount: a1,
+                                ..
+                            },
+                            ModuleConfig::Oscillator {
+                                waveform: w2,
+                                pitch_env_amount: a2,
+                                ..
+                            },
+                        ) => w1 != w2 || (*a1 > 0.0) != (*a2 > 0.0),
                         (ModuleConfig::Filter { .. }, ModuleConfig::Filter { .. }) => false,
                         (ModuleConfig::Adsr { .. }, ModuleConfig::Adsr { .. }) => false,
                         (ModuleConfig::Gain { .. }, ModuleConfig::Gain { .. }) => false,
-                        _ => true
+                        _ => true,
                     }
                 })
             };
@@ -176,31 +196,46 @@ impl SynthVoice {
             } else {
                 for (rt, cfg) in self.modules.iter_mut().zip(&inst.modules) {
                     match (cfg, &rt.params) {
-                        (ModuleConfig::Oscillator { pitch_env_amount, pitch_env_decay, .. }, params) => {
+                        (
+                            ModuleConfig::Oscillator {
+                                pitch_env_amount,
+                                pitch_env_decay,
+                                ..
+                            },
+                            params,
+                        ) => {
                             if !params.is_empty() {
                                 params[0].set(*pitch_env_amount);
                                 params[1].set(*pitch_env_decay);
                             }
-                        },
+                        }
                         (ModuleConfig::Filter { cutoff, resonance }, params) => {
                             if params.len() >= 2 {
                                 params[0].set(*cutoff);
                                 params[1].set(*resonance);
                             }
-                        },
-                        (ModuleConfig::Adsr { attack, decay, sustain, release }, params) => {
+                        }
+                        (
+                            ModuleConfig::Adsr {
+                                attack,
+                                decay,
+                                sustain,
+                                release,
+                            },
+                            params,
+                        ) => {
                             if params.len() >= 4 {
                                 params[0].set(*attack);
                                 params[1].set(*decay);
                                 params[2].set(*sustain);
                                 params[3].set(*release);
                             }
-                        },
+                        }
                         (ModuleConfig::Gain { level }, params) => {
-                            if params.len() >= 1 {
+                            if !params.is_empty() {
                                 params[0].set(*level);
                             }
-                        },
+                        }
                     }
                 }
             }
@@ -219,10 +254,37 @@ impl SynthVoice {
     }
 }
 
-impl FrameProcessor for SynthVoice {
+impl FrameProcessor<Mono> for SynthVoice {
     fn process(&mut self, buffer: &mut [f32], sample_index: u64) {
         for module in &mut self.modules {
             module.processor.process(buffer, sample_index);
         }
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        for module in &mut self.modules {
+            module.processor.set_sample_rate(sample_rate);
+        }
+    }
+
+    fn latency_samples(&self) -> u32 {
+        self.modules
+            .iter()
+            .map(|m| m.processor.latency_samples())
+            .sum()
+    }
+
+    fn name(&self) -> &str {
+        "SynthVoice"
+    }
+
+    fn visualize(&self, indent: usize) -> String {
+        let mut output = String::new();
+        for module in &self.modules {
+            output.push_str(&module.processor.visualize(indent));
+            output.push('\n');
+        }
+        output
     }
 }

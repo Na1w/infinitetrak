@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum WaveformType {
@@ -49,9 +49,14 @@ impl Default for Instrument {
                     pitch_offset: 0.0,
                     detune: 0.0,
                     pitch_env_amount: 0.0,
-                    pitch_env_decay: 0.1
+                    pitch_env_decay: 0.1,
                 },
-                ModuleConfig::Adsr { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 },
+                ModuleConfig::Adsr {
+                    attack: 0.01,
+                    decay: 0.1,
+                    sustain: 0.8,
+                    release: 0.2,
+                },
                 ModuleConfig::Gain { level: 0.5 },
             ],
         }

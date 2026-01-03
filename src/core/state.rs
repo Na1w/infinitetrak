@@ -1,6 +1,6 @@
+use super::NUM_INSTRUMENTS;
 use super::instrument::{Instrument, ModuleConfig, WaveformType};
 use super::pattern::Pattern;
-use super::NUM_INSTRUMENTS;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayMode {
@@ -39,10 +39,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 150.0,
-                pitch_env_decay: 0.05
+                pitch_env_decay: 0.05,
             },
-            ModuleConfig::Filter { cutoff: 2000.0, resonance: 0.0 },
-            ModuleConfig::Adsr { attack: 0.001, decay: 0.2, sustain: 0.0, release: 0.1 },
+            ModuleConfig::Filter {
+                cutoff: 2000.0,
+                resonance: 0.0,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.001,
+                decay: 0.2,
+                sustain: 0.0,
+                release: 0.1,
+            },
             ModuleConfig::Gain { level: 0.9 },
         ];
 
@@ -54,10 +62,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 10000.0, resonance: 0.0 },
-            ModuleConfig::Adsr { attack: 0.001, decay: 0.05, sustain: 0.0, release: 0.05 },
+            ModuleConfig::Filter {
+                cutoff: 10000.0,
+                resonance: 0.0,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.001,
+                decay: 0.05,
+                sustain: 0.0,
+                release: 0.05,
+            },
             ModuleConfig::Gain { level: 0.6 },
         ];
 
@@ -69,10 +85,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 3000.0, resonance: 0.2 },
-            ModuleConfig::Adsr { attack: 0.001, decay: 0.15, sustain: 0.0, release: 0.1 },
+            ModuleConfig::Filter {
+                cutoff: 3000.0,
+                resonance: 0.2,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.001,
+                decay: 0.15,
+                sustain: 0.0,
+                release: 0.1,
+            },
             ModuleConfig::Gain { level: 0.7 },
         ];
 
@@ -84,10 +108,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 400.0, resonance: 0.4 },
-            ModuleConfig::Adsr { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2 },
+            ModuleConfig::Filter {
+                cutoff: 400.0,
+                resonance: 0.4,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.01,
+                decay: 0.2,
+                sustain: 0.6,
+                release: 0.2,
+            },
             ModuleConfig::Gain { level: 0.6 },
         ];
 
@@ -99,10 +131,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 3000.0, resonance: 0.2 },
-            ModuleConfig::Adsr { attack: 0.02, decay: 0.1, sustain: 0.8, release: 0.3 },
+            ModuleConfig::Filter {
+                cutoff: 3000.0,
+                resonance: 0.2,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.02,
+                decay: 0.1,
+                sustain: 0.8,
+                release: 0.3,
+            },
             ModuleConfig::Gain { level: 0.5 },
         ];
 
@@ -114,10 +154,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 2000.0, resonance: 0.0 },
-            ModuleConfig::Adsr { attack: 0.001, decay: 0.3, sustain: 0.0, release: 0.3 },
+            ModuleConfig::Filter {
+                cutoff: 2000.0,
+                resonance: 0.0,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.001,
+                decay: 0.3,
+                sustain: 0.0,
+                release: 0.3,
+            },
             ModuleConfig::Gain { level: 0.6 },
         ];
 
@@ -129,10 +177,18 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 800.0, resonance: 0.1 },
-            ModuleConfig::Adsr { attack: 0.5, decay: 0.5, sustain: 0.7, release: 1.0 },
+            ModuleConfig::Filter {
+                cutoff: 800.0,
+                resonance: 0.1,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.5,
+                decay: 0.5,
+                sustain: 0.7,
+                release: 1.0,
+            },
             ModuleConfig::Gain { level: 0.4 },
         ];
 
@@ -144,14 +200,23 @@ impl SharedState {
                 pitch_offset: 0.0,
                 detune: 0.0,
                 pitch_env_amount: 0.0,
-                pitch_env_decay: 0.1
+                pitch_env_decay: 0.1,
             },
-            ModuleConfig::Filter { cutoff: 600.0, resonance: 0.8 },
-            ModuleConfig::Adsr { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.1 },
+            ModuleConfig::Filter {
+                cutoff: 600.0,
+                resonance: 0.8,
+            },
+            ModuleConfig::Adsr {
+                attack: 0.01,
+                decay: 0.2,
+                sustain: 0.2,
+                release: 0.1,
+            },
             ModuleConfig::Gain { level: 0.5 },
         ];
 
-        let instruments_array: [Instrument; NUM_INSTRUMENTS] = instruments.try_into().expect("Wrong size");
+        let instruments_array: [Instrument; NUM_INSTRUMENTS] =
+            instruments.try_into().expect("Wrong size");
 
         Self {
             patterns: vec![Pattern::default()],

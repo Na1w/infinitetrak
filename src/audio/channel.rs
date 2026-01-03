@@ -1,6 +1,7 @@
-use infinitedsp_core::core::frame_processor::FrameProcessor;
-use crate::core::Instrument;
 use super::voice::SynthVoice;
+use crate::core::Instrument;
+use infinitedsp_core::core::channels::Mono;
+use infinitedsp_core::core::frame_processor::FrameProcessor;
 
 pub struct Channel {
     voice: SynthVoice,
@@ -24,7 +25,8 @@ impl Channel {
             self.current_instrument = inst.clone();
         }
         self.voice.release();
-        self.voice.update_params(freq, Some(&self.current_instrument));
+        self.voice
+            .update_params(freq, Some(&self.current_instrument));
         self.voice.trigger();
     }
 
@@ -32,7 +34,8 @@ impl Channel {
         if let Some(inst) = instrument {
             self.current_instrument = inst.clone();
         }
-        self.voice.update_params(freq, Some(&self.current_instrument));
+        self.voice
+            .update_params(freq, Some(&self.current_instrument));
     }
 
     pub fn release(&mut self) {
@@ -52,8 +55,12 @@ impl Channel {
         let slice = &mut self.mix_buffer[0..buffer_len];
         slice.fill(0.0);
 
-        self.voice.process(slice, sample_index);
+        FrameProcessor::<Mono>::process(&mut self.voice, slice, sample_index);
 
         slice
+    }
+
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        FrameProcessor::<Mono>::set_sample_rate(&mut self.voice, sample_rate);
     }
 }

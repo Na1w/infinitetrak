@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub const NUM_CHANNELS: usize = 16;
 pub const ROWS_PER_PATTERN: usize = 64;
@@ -21,8 +21,6 @@ impl Default for Pattern {
         for _ in 0..ROWS_PER_PATTERN {
             rows.push([Note::default(); NUM_CHANNELS]);
         }
-        Self {
-            rows,
-        }
+        Self { rows }
     }
 }

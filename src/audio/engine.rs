@@ -1,8 +1,9 @@
+use super::channel::Channel;
+use crate::core::state::PlayMode;
+use crate::core::{NUM_CHANNELS, NUM_INSTRUMENTS, ROWS_PER_PATTERN, SharedState};
+use infinitedsp_core::core::channels::Mono;
 use infinitedsp_core::core::frame_processor::FrameProcessor;
 use std::sync::{Arc, Mutex};
-use crate::core::{SharedState, NUM_CHANNELS, ROWS_PER_PATTERN, NUM_INSTRUMENTS};
-use crate::core::state::PlayMode;
-use super::channel::Channel;
 
 pub struct TrackerEngine {
     channels: [Channel; NUM_CHANNELS],
@@ -10,6 +11,7 @@ pub struct TrackerEngine {
     preview_timers: [usize; NUM_CHANNELS],
     preview_duration: usize,
     was_playing: bool,
+    sample_rate: f32,
 }
 
 impl TrackerEngine {
@@ -19,8 +21,10 @@ impl TrackerEngine {
             channels_vec.push(Channel::new(sample_rate));
         }
 
-        let channels: [Channel; NUM_CHANNELS] = channels_vec.try_into()
-            .map_err(|_| "Failed to init channels").unwrap();
+        let channels: [Channel; NUM_CHANNELS] = channels_vec
+            .try_into()
+            .map_err(|_| "Failed to init channels")
+            .unwrap();
 
         Self {
             channels,
@@ -28,6 +32,7 @@ impl TrackerEngine {
             preview_timers: [0; NUM_CHANNELS],
             preview_duration: (sample_rate * 0.5) as usize,
             was_playing: false,
+            sample_rate,
         }
     }
 
@@ -76,7 +81,6 @@ impl TrackerEngine {
                     }
 
                     self.channels[i].last_key = note.key;
-
                 } else {
                     // Empty row behavior:
                     // Empty row triggers Note Off (Release) to allow for staccato.
@@ -101,7 +105,7 @@ impl TrackerEngine {
     }
 }
 
-impl FrameProcessor for TrackerEngine {
+impl FrameProcessor<Mono> for TrackerEngine {
     fn process(&mut self, buffer: &mut [f32], sample_index: u64) {
         buffer.fill(0.0);
         let frames = buffer.len();
@@ -112,8 +116,8 @@ impl FrameProcessor for TrackerEngine {
         {
             let mut state = self.state.lock().unwrap();
 
-            if let Some((ch_idx, key)) = state.preview_request.take() {
-                if ch_idx < NUM_CHANNELS {
+            if let Some((ch_idx, key)) = state.preview_request.take()
+                && ch_idx < NUM_CHANNELS {
                     if key > 0 {
                         let freq = Self::midi_to_freq(key);
                         let inst_idx = ch_idx % NUM_INSTRUMENTS;
@@ -127,7 +131,6 @@ impl FrameProcessor for TrackerEngine {
                         self.preview_timers[ch_idx] = 0;
                     }
                 }
-            }
 
             is_playing = state.is_playing;
             if is_playing {
@@ -173,5 +176,24 @@ impl FrameProcessor for TrackerEngine {
         for sample in buffer.iter_mut() {
             *sample = sample.clamp(-1.0, 1.0);
         }
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        for channel in &mut self.channels {
+            channel.set_sample_rate(sample_rate);
+        }
+    }
+
+    fn latency_samples(&self) -> u32 {
+        0
+    }
+
+    fn name(&self) -> &str {
+        "TrackerEngine"
+    }
+
+    fn visualize(&self, _indent: usize) -> String {
+        "TrackerEngine".to_string()
     }
 }

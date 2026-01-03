@@ -1,12 +1,12 @@
-use std::path::Path;
-use std::fs;
-use crossterm::event::{self, KeyCode};
-use crate::core::{ROWS_PER_PATTERN, NUM_CHANNELS, NUM_INSTRUMENTS, ModuleConfig, WaveformType};
-use crate::core::io::{save_project, load_project};
+use super::app::{App, InstrumentFocus};
+use crate::audio::render_to_wav;
+use crate::core::io::{load_project, save_project};
 use crate::core::pattern::Pattern;
 use crate::core::state::PlayMode;
-use crate::audio::render_to_wav;
-use super::app::{App, InstrumentFocus};
+use crate::core::{ModuleConfig, NUM_CHANNELS, NUM_INSTRUMENTS, ROWS_PER_PATTERN, WaveformType};
+use crossterm::event::{self, KeyCode};
+use std::fs;
+use std::path::Path;
 
 pub fn handle_file_dialog_input(code: KeyCode, app: &mut App) {
     match code {
@@ -26,8 +26,8 @@ pub fn handle_file_dialog_input(code: KeyCode, app: &mut App) {
             }
         }
         KeyCode::Enter => {
-            if let Some(selected) = app.file_list_state.selected() {
-                if selected < app.file_list.len() {
+            if let Some(selected) = app.file_list_state.selected()
+                && selected < app.file_list.len() {
                     let filename = app.file_list[selected].clone();
                     match load_project(&filename) {
                         Ok(project) => {
@@ -38,13 +38,12 @@ pub fn handle_file_dialog_input(code: KeyCode, app: &mut App) {
                             app.set_status(format!("Loaded {}", filename));
                             app.current_filename = Some(filename);
                             app.show_file_dialog = false;
-                        },
+                        }
                         Err(e) => {
                             app.set_status(format!("Error loading: {}", e));
                         }
                     }
                 }
-            }
         }
         _ => {}
     }
@@ -56,17 +55,13 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         KeyCode::F(9) => {
             if let Ok(entries) = fs::read_dir(".") {
                 app.file_list.clear();
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        let path = entry.path();
-                        if let Some(ext) = path.extension() {
-                            if ext == "json" {
-                                if let Some(name) = path.file_name() {
-                                    app.file_list.push(name.to_string_lossy().into_owned());
-                                }
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if let Some(ext) = path.extension()
+                        && ext == "json"
+                            && let Some(name) = path.file_name() {
+                                app.file_list.push(name.to_string_lossy().into_owned());
                             }
-                        }
-                    }
                 }
                 app.file_list.sort();
                 if !app.file_list.is_empty() {
@@ -89,7 +84,9 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                         break name;
                     }
                     i += 1;
-                    if i > 99 { break "project_new.json".to_string(); }
+                    if i > 99 {
+                        break "project_new.json".to_string();
+                    }
                 }
             };
 
@@ -127,7 +124,9 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                             break name;
                         }
                         i += 1;
-                        if i > 99 { break "project_new.json".to_string(); }
+                        if i > 99 {
+                            break "project_new.json".to_string();
+                        }
                     }
                 };
 
@@ -146,9 +145,7 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         }
         // Render to WAV (F12)
         KeyCode::F(12) => {
-            let state_clone = {
-                app.state.lock().unwrap().clone()
-            };
+            let state_clone = { app.state.lock().unwrap().clone() };
             app.set_status("Rendering to output.wav...".to_string());
 
             if let Err(e) = render_to_wav("output.wav", &state_clone) {
@@ -182,16 +179,24 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
             }
         }
         KeyCode::F(1) => {
-            if app.current_octave > 0 { app.current_octave -= 1; }
+            if app.current_octave > 0 {
+                app.current_octave -= 1;
+            }
         }
         KeyCode::F(2) => {
-            if app.current_octave < 8 { app.current_octave += 1; }
+            if app.current_octave < 8 {
+                app.current_octave += 1;
+            }
         }
         KeyCode::F(3) => {
-            if app.edit_step > 0 { app.edit_step -= 1; }
+            if app.edit_step > 0 {
+                app.edit_step -= 1;
+            }
         }
         KeyCode::F(4) => {
-            if app.edit_step < 16 { app.edit_step += 1; }
+            if app.edit_step < 16 {
+                app.edit_step += 1;
+            }
         }
         KeyCode::F(5) => {
             let current_pattern = {
@@ -206,7 +211,8 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         KeyCode::F(6) => {
             let current_pattern = {
                 let mut state = app.state.lock().unwrap();
-                if state.current_pattern < 255 { // Arbitrary limit
+                if state.current_pattern < 255 {
+                    // Arbitrary limit
                     state.current_pattern += 1;
                     if state.current_pattern >= state.patterns.len() {
                         state.patterns.push(Pattern::default());
@@ -248,7 +254,9 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                 let mut state = app.state.lock().unwrap();
                 let current_pattern_idx = state.current_pattern;
                 let current_pattern = state.patterns[current_pattern_idx].clone();
-                state.patterns.insert(current_pattern_idx + 1, current_pattern);
+                state
+                    .patterns
+                    .insert(current_pattern_idx + 1, current_pattern);
                 state.current_pattern += 1;
                 (state.current_pattern, state.patterns.len())
             };
@@ -268,7 +276,10 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                     (state.current_pattern, state.patterns.len())
                 }
             };
-            app.set_status(format!("Deleted Pattern. Current: {} (Total: {})", new_idx, total));
+            app.set_status(format!(
+                "Deleted Pattern. Current: {} (Total: {})",
+                new_idx, total
+            ));
         }
         KeyCode::Backspace | KeyCode::Delete | KeyCode::Char('.') => {
             let mut state = app.state.lock().unwrap();
@@ -282,9 +293,18 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
         }
         KeyCode::Char(c) => {
             let base_note = match c {
-                'z' => Some(0), 's' => Some(1), 'x' => Some(2), 'd' => Some(3),
-                'c' => Some(4), 'v' => Some(5), 'g' => Some(6), 'b' => Some(7),
-                'h' => Some(8), 'n' => Some(9), 'j' => Some(10), 'm' => Some(11),
+                'z' => Some(0),
+                's' => Some(1),
+                'x' => Some(2),
+                'd' => Some(3),
+                'c' => Some(4),
+                'v' => Some(5),
+                'g' => Some(6),
+                'b' => Some(7),
+                'h' => Some(8),
+                'n' => Some(9),
+                'j' => Some(10),
+                'm' => Some(11),
                 ',' => Some(12),
                 _ => None,
             };
@@ -294,7 +314,8 @@ pub fn handle_pattern_input(key: event::KeyEvent, app: &mut App) {
                 let midi_note = base + (app.current_octave + 1) * 12;
                 if midi_note < 128 {
                     let pattern_idx = state.current_pattern;
-                    state.patterns[pattern_idx].rows[app.cursor_row][app.cursor_channel].key = midi_note;
+                    state.patterns[pattern_idx].rows[app.cursor_row][app.cursor_channel].key =
+                        midi_note;
                     state.preview_request = Some((app.cursor_channel, midi_note));
                 }
 
@@ -326,7 +347,7 @@ pub fn handle_instrument_input(code: KeyCode, app: &mut App) {
                     app.param_idx = 0;
                     app.param_table_state.select(Some(0));
                 }
-                KeyCode::Char(c) if c.is_digit(10) => {
+                KeyCode::Char(c) if c.is_ascii_digit() => {
                     let digit = c.to_digit(10).unwrap() as usize;
                     let mut new_idx = (app.current_instrument_idx % 10) * 10 + digit;
                     if new_idx >= NUM_INSTRUMENTS {
@@ -387,7 +408,12 @@ fn change_module_param(app: &mut App, dir: f32) {
     let mut current_idx = 0;
     for module in &mut inst.modules {
         match module {
-            ModuleConfig::Oscillator { waveform, pitch_env_amount, pitch_env_decay, .. } => {
+            ModuleConfig::Oscillator {
+                waveform,
+                pitch_env_amount,
+                pitch_env_decay,
+                ..
+            } => {
                 if current_idx == app.param_idx {
                     if dir > 0.0 {
                         *waveform = match waveform {
@@ -419,7 +445,7 @@ fn change_module_param(app: &mut App, dir: f32) {
                     return;
                 }
                 current_idx += 1;
-            },
+            }
             ModuleConfig::Filter { cutoff, resonance } => {
                 if current_idx == app.param_idx {
                     *cutoff = (*cutoff + dir * 100.0).clamp(20.0, 20000.0);
@@ -431,13 +457,34 @@ fn change_module_param(app: &mut App, dir: f32) {
                     return;
                 }
                 current_idx += 1;
-            },
-            ModuleConfig::Adsr { attack, decay, sustain, release } => {
-                if current_idx == app.param_idx { *attack = (*attack + dir * 0.01).max(0.001); return; } current_idx += 1;
-                if current_idx == app.param_idx { *decay = (*decay + dir * 0.05).max(0.001); return; } current_idx += 1;
-                if current_idx == app.param_idx { *sustain = (*sustain + dir * 0.05).clamp(0.0, 1.0); return; } current_idx += 1;
-                if current_idx == app.param_idx { *release = (*release + dir * 0.05).max(0.001); return; } current_idx += 1;
-            },
+            }
+            ModuleConfig::Adsr {
+                attack,
+                decay,
+                sustain,
+                release,
+            } => {
+                if current_idx == app.param_idx {
+                    *attack = (*attack + dir * 0.01).max(0.001);
+                    return;
+                }
+                current_idx += 1;
+                if current_idx == app.param_idx {
+                    *decay = (*decay + dir * 0.05).max(0.001);
+                    return;
+                }
+                current_idx += 1;
+                if current_idx == app.param_idx {
+                    *sustain = (*sustain + dir * 0.05).clamp(0.0, 1.0);
+                    return;
+                }
+                current_idx += 1;
+                if current_idx == app.param_idx {
+                    *release = (*release + dir * 0.05).max(0.001);
+                    return;
+                }
+                current_idx += 1;
+            }
             ModuleConfig::Gain { level } => {
                 if current_idx == app.param_idx {
                     *level = (*level + dir * 0.05).clamp(0.0, 1.0);

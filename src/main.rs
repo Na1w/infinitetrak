@@ -1,21 +1,24 @@
-mod core;
 mod audio;
+mod core;
 mod ui;
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use crate::audio::TrackerEngine;
+use crate::core::SharedState;
+use crate::ui::{App, run_app};
 use cpal::SizedSample;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use infinitedsp_core::core::channels::Mono;
 use infinitedsp_core::core::frame_processor::FrameProcessor;
 use std::sync::{Arc, Mutex};
-use crate::core::SharedState;
-use crate::audio::TrackerEngine;
-use crate::ui::{App, run_app};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting InfiniTrak...");
 
     // Setup audio
     let host = cpal::default_host();
-    let device = host.default_output_device().expect("no output device available");
+    let device = host
+        .default_output_device()
+        .expect("no output device available");
     let config = device.default_output_config()?;
 
     // Create shared state
@@ -42,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn run_audio<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    state: Arc<Mutex<SharedState>>
+    state: Arc<Mutex<SharedState>>,
 ) -> Result<cpal::Stream, Box<dyn std::error::Error>>
 where
     T: cpal::Sample + cpal::FromSample<f32> + SizedSample,
@@ -67,7 +70,7 @@ where
 
             let buffer_slice = &mut processing_buffer[0..frames];
 
-            engine.process(buffer_slice, sample_index);
+            FrameProcessor::<Mono>::process(&mut engine, buffer_slice, sample_index);
 
             sample_index += frames as u64;
 

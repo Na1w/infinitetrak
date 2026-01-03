@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
+use super::instrument::Instrument;
+use super::pattern::Pattern;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use super::pattern::Pattern;
-use super::instrument::Instrument;
 
 #[derive(Serialize, Deserialize)]
 pub struct Project {
@@ -14,7 +14,12 @@ pub struct Project {
     pub instruments: Vec<Instrument>,
 }
 
-pub fn save_project(path: &str, bpm: f32, patterns: &[Pattern], instruments: &[Instrument]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_project(
+    path: &str,
+    bpm: f32,
+    patterns: &[Pattern],
+    instruments: &[Instrument],
+) -> Result<(), Box<dyn std::error::Error>> {
     let project = Project {
         bpm,
         pattern: None,

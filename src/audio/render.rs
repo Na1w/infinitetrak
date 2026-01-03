@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex};
-use hound;
-use infinitedsp_core::core::frame_processor::FrameProcessor;
-use crate::core::{SharedState, ROWS_PER_PATTERN};
 use crate::audio::TrackerEngine;
+use crate::core::{ROWS_PER_PATTERN, SharedState};
+use hound;
+use infinitedsp_core::core::channels::Mono;
+use infinitedsp_core::core::frame_processor::FrameProcessor;
+use std::sync::{Arc, Mutex};
 
 pub fn render_to_wav(path: &str, state: &SharedState) -> Result<(), Box<dyn std::error::Error>> {
     let sample_rate = 44100.0;
@@ -51,7 +52,7 @@ pub fn render_to_wav(path: &str, state: &SharedState) -> Result<(), Box<dyn std:
 
         let mono_slice = &mut buffer[0..current_block_size];
 
-        engine.process(mono_slice, samples_rendered as u64);
+        FrameProcessor::<Mono>::process(&mut engine, mono_slice, samples_rendered as u64);
 
         for &sample in mono_slice.iter() {
             let amplitude = i16::MAX as f32;

@@ -1,18 +1,18 @@
-use std::io;
-use std::sync::{Arc, Mutex};
+use super::input::{handle_file_dialog_input, handle_instrument_input, handle_pattern_input};
+use super::view::ui;
+use crate::core::SharedState;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Terminal,
     backend::{Backend, CrosstermBackend},
     widgets::{ListState, TableState},
-    Terminal,
 };
-use crate::core::SharedState;
-use super::view::ui;
-use super::input::{handle_pattern_input, handle_instrument_input, handle_file_dialog_input};
+use std::io;
+use std::sync::{Arc, Mutex};
 
 #[derive(PartialEq)]
 pub enum View {
@@ -112,10 +112,7 @@ pub fn run_app(mut app: App) -> Result<(), Box<dyn std::error::Error>> {
 
     disable_raw_mode()?;
     // Removed DisableMouseCapture
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -125,10 +122,13 @@ pub fn run_app(mut app: App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> where <B as Backend>::Error: Send + Sync + 'static {
+fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()>
+where
+    <B as Backend>::Error: Send + Sync + 'static,
+{
     loop {
         if let Err(e) = terminal.draw(|f| ui(f, app)) {
-            return Err(io::Error::new(io::ErrorKind::Other, e));
+            return Err(io::Error::other(e));
         }
 
         if app.status_timer > 0 {
@@ -190,7 +190,10 @@ fn run_main_loop<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::R
                     KeyCode::Char(' ') => {
                         let mut state = app.state.lock().unwrap();
                         if !state.is_playing {
-                            if key.modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
+                            if key
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::SHIFT)
+                            {
                                 state.current_row = app.cursor_row;
                             } else {
                                 state.current_row = 0;
